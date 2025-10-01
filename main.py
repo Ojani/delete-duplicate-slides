@@ -8,44 +8,56 @@ def printError(msg):
     print("\033[91merror:\033[0m " + msg)
 
 def deleteDuplicateSlides(args):
-    if not os.path.exists(args.filename):
+    filepaths = [str(path) for path in Path(args.filename).rglob('*.pdf')]
+
+    print(f"Identified {len(filepaths)} PDF{'' if len(filepaths) == 1 else 's'}.\n")
+
+    if len(filepaths) == 0:
         printError("file \033[4m" + args.filename + "\033[0m doesn't exist.")
         return
 
-    # removing duplicates
-    doc = pymupdf.open(args.filename)
-    prev_text = ''
+    for filepath in filepaths:
+        outputname = args.outputname
 
-    for i in range(len(doc)-1, -1, -1):
-        current_text = doc[i].get_text().encode("utf8")
+        print(f"Processing \033[4m{os.path.basename(filepath)}\033[0m.\n")
 
-        if current_text == prev_text:
-            doc.delete_page(i)
+        # removing duplicates
+        doc = pymupdf.open(filepath)
+        prev_text = ''
+
+        for i in range(len(doc)-1, -1, -1):
+            current_text = doc[i].get_text().encode("utf8")
+
+            if current_text == prev_text:
+                doc.delete_page(i)
+            
+            prev_text = current_text
+
+        # saving file
+        if args.replace:
+            # renaming original so new one can hive its name
+            os.rename(filepath, filepath[0:-4] + "-original.pdf")
+            outputname = filepath[0:-4] + "-no-duplicates.pdf"
+        elif not outputname:
+            outputname = filepath[0:-4] + "-no-duplicates.pdf"
+        elif not outputname.endswith('.pdf'):
+            if len(filepaths) > 1:
+                outputname = filepath + outputname + '.pdf'
+            else:
+                outputname += ".pdf"
+
+        doc.save(outputname)
         
-        prev_text = current_text
+        # deleting original and renaming new one if replace option was chosen
+        if args.replace:
+            oldname = outputname
+            new_name = oldname[0:-18] + '.pdf'
+            outputname = new_name
 
-    # saving file
-    if args.replace:
-        # renaming original so new one can hive its name
-        os.rename(args.filename, args.filename[0:-4] + "-original.pdf")
-        args.outputname = args.filename[0:-4] + "-no-duplicates.pdf"
-    elif not args.outputname:
-        args.outputname = args.filename[0:-4] + "-no-duplicates.pdf"
-    elif not args.outputname.endswith('.pdf'):
-        args.outputname += ".pdf"
+            os.rename(oldname, new_name)
+            os.remove(filepath[0:-4] + "-original.pdf")
 
-    doc.save(args.outputname)
-    
-    # deleting original and renaming new one if replace option was chosen
-    if args.replace:
-        oldname = args.outputname
-        new_name = oldname[0:-18] + '.pdf'
-        args.outputname = new_name
-
-        os.rename(oldname, new_name)
-        os.remove(args.filename[0:-4] + "-original.pdf")
-
-    print("Saved output to \033[4m" + args.outputname + "\033[0m.")
+        print("Saved output to \033[4m" + outputname + "\033[0m.\n")
    
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(
