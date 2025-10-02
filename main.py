@@ -1,7 +1,6 @@
 from pathlib import Path
 import argparse
 import pymupdf
-import sys
 import os
 
 
